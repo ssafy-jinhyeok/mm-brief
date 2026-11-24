@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import mmbrief as m  # noqa: E402
 
 tmp = Path(tempfile.mkdtemp())
-m.KB, m.IMAGES = tmp / "events.json", tmp / "images.json"
+m.KB, m.IMAGES, m.POSTS = tmp / "events.json", tmp / "images.json", tmp / "posts.json"
 
 
 def ms(month, day):
@@ -127,4 +127,32 @@ assert len(calls) == 3  # 12장 = 10장 + 2장
 assert all(b["source"]["media_type"] == "image/jpeg" for b in calls[-1] if b["type"] == "image")
 m.read_images([{"id": "r", "text": "", "images": [{"id": "bad", "preview": False}]}], "tok")
 assert len(calls) == 3  # 깨진 이미지만 있으면 Claude를 부르지 않는다
+full = {"id": "fp", "text": "짧게", "full": "길게 다 적은 글", "images": [{"id": "f1", "preview": True}]}
+m.read_images([full], "tok")
+assert full["full"].endswith("(첨부 이미지 내용) 이미 읽음")  # 검색용 전체 글에도 이미지 내용이 붙는다
+
+# 검색: 쌓아 둔 글에서 띄어쓰기·대소문자 무시하고 찾고, 모든 낱말이 든 글을 최신 글부터
+now_ms = int(m.time.time() * 1000)
+day = 86400 * 1000
+cfg = {"channels": ["t/notice", "t/job"]}
+sp = [{**post("s1", 1, text="취업특강 안내: 1~7반 11/10, 15반 11/17"), "at": now_ms - 40 * day, "full": "취업특강 안내: 1~7반 11/10, 15반 11/17"},
+      {**post("s2", 1, ch="t/job", text="SSAFY 어워즈 이벤트"), "at": now_ms - 2 * day, "full": "SSAFY 어워즈 이벤트 (첨부 이미지 내용) 11/27 12:00 마감"},
+      {**post("s3", 1, text="15반 자리 배치"), "at": now_ms - 1 * day, "full": "15반 자리 배치"}]
+sp[1]["channel"] = "취업 공지"
+assert m.save_posts(sp, cfg, days=60) == 3
+store = json.loads(m.POSTS.read_text(encoding="utf-8"))
+assert "11/27 12:00 마감" in store["s2"]["text"]  # 이미지 내용까지 찾을 수 있다
+hits, partial, _ = m.find_posts(store, ["ssafy어워즈"])
+assert [h[0] for h in hits] == ["s2"] and not partial
+assert [h[0] for h in m.find_posts(store, ["15반"])[0]] == ["s3", "s1"]  # 최신 글부터
+assert [h[0] for h in m.find_posts(store, ["취업특강", "15반"])[0]] == ["s1"]  # 모든 낱말
+hits, partial, rest = m.find_posts(store, ["취업특강", "없는말"])
+assert not hits and partial and rest[0][0] == "s1"  # 모두 맞는 글이 없으면 일부만 맞는 글
+assert [h[0] for h in m.find_posts(store, ["15반"], days=30)[0]] == ["s3"]
+assert [h[0] for h in m.find_posts(store, ["이벤트"], channel="취업")[0]] == ["s2"]
+assert "15반 11/17" in m.snippet(store["s1"]["text"], ["15반"])
+# 30일 창 밖의 글은 남고, 창 안에서 사라진 글(지운 글)과 뺀 채널의 글은 빠진다
+assert m.save_posts([sp[1]], {"channels": ["t/job", "t/notice"]}) == 2
+assert set(json.loads(m.POSTS.read_text(encoding="utf-8"))) == {"s1", "s2"}
+assert m.save_posts([sp[1]], {"channels": ["t/job"]}) == 1
 print("ok")
