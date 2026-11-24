@@ -1,0 +1,11 @@
+{
+  "name": "mm-brief",
+  "owner": { "name": "mm-brief maintainers" },
+  "plugins": [
+    {
+      "name": "mm-brief",
+      "source": "./",
+      "description": "Mattermost 공지 → 일정표 → 매일 아침 나와의 DM 브리핑"
+    }
+  ]
+}

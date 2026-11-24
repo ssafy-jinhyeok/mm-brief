@@ -1,0 +1,10 @@
+{
+  "name": "mm-brief",
+  "displayName": "Mattermost 아침 브리핑",
+  "version": "0.2.0",
+  "description": "Mattermost 공지 채널에서 일정을 뽑아 일정표를 쌓고, 매일 아침 나와의 DM으로 브리핑합니다.",
+  "author": { "name": "mm-brief maintainers" },
+  "repository": "https://github.com/ssafy-jinhyeok/mm-brief",
+  "license": "MIT",
+  "keywords": ["mattermost", "schedule", "briefing", "knowledge-base"]
+}
